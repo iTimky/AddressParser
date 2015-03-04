@@ -1,0 +1,11 @@
+#ignore thumbnails created by windows
+Thumbs.db
+
+_ReSharper*/
+
+[Bb]in/
+obj/
+log/
+
+*.tmp
+*.suo

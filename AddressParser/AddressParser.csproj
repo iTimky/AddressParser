@@ -39,7 +39,19 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Class1.cs" />
+    <Compile Include="Core\AddressStringBuilder.cs" />
+    <Compile Include="Core\Models\Address.cs" />
+    <Compile Include="Core\AddressParserInternal.cs" />
+    <Compile Include="AddressParser.cs" />
+    <Compile Include="Core\Models\AddressPart.cs" />
+    <Compile Include="Core\Models\AddrHouse.cs" />
+    <Compile Include="Core\Models\AddrObject.cs" />
+    <Compile Include="Core\Models\AddrObjectKind.cs" />
+    <Compile Include="Core\Models\AddrObjectType.cs" />
+    <Compile Include="Core\AddressSearcher.cs" />
+    <Compile Include="Core\Models\HouseInfo.cs" />
+    <Compile Include="Core\Models\NameAndType.cs" />
+    <Compile Include="Core\Models\OldAddress.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
