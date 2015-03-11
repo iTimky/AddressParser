@@ -7,8 +7,8 @@
     <ProjectGuid>{D29FC4DA-2A03-483C-8DAE-8273CDC22CBD}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>AddressParser</RootNamespace>
-    <AssemblyName>AddressParser</AssemblyName>
+    <RootNamespace>CE.Parsing</RootNamespace>
+    <AssemblyName>CE.Parsing</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
   </PropertyGroup>
@@ -40,15 +40,20 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Core\AddressStringBuilder.cs" />
+    <Compile Include="Core\Db\DataContextBase_Address.cs" />
+    <Compile Include="Core\Db\DataContextBase_Common.cs" />
+    <Compile Include="Core\Db\DataContextBase_AddrObject.cs" />
     <Compile Include="Core\Models\Address.cs" />
-    <Compile Include="Core\AddressParserInternal.cs" />
+    <Compile Include="Core\Parser.cs" />
     <Compile Include="AddressParser.cs" />
+    <Compile Include="Core\Models\AddressHierarchyObject.cs" />
     <Compile Include="Core\Models\AddressPart.cs" />
     <Compile Include="Core\Models\AddrHouse.cs" />
     <Compile Include="Core\Models\AddrObject.cs" />
     <Compile Include="Core\Models\AddrObjectKind.cs" />
     <Compile Include="Core\Models\AddrObjectType.cs" />
     <Compile Include="Core\AddressSearcher.cs" />
+    <Compile Include="Core\Models\GeographicalObject.cs" />
     <Compile Include="Core\Models\HouseInfo.cs" />
     <Compile Include="Core\Models\NameAndType.cs" />
     <Compile Include="Core\Models\OldAddress.cs" />

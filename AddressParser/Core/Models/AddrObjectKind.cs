@@ -1,6 +1,6 @@
 namespace CE.Parsing.Core.Models
 {
-    internal enum AddrObjectKind
+    public enum AddrObjectKind
     {
         AddrObjectCurrent,
         AddrLandMarkCurrent,

@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Text.RegularExpressions;
 
 using CE.Parsing.Core;
+using CE.Parsing.Core.Db;
 using CE.Parsing.Core.Models;
 
 using Microsoft.SqlServer.Server;
@@ -15,67 +16,52 @@ using Microsoft.SqlServer.Server;
 
 namespace CE.Parsing
 {
-    public class AddressParser
+    public static class AddressParser
     {
+        static readonly Parser Parser = new Parser(new DataContext());
+
         [SqlFunction(FillRowMethodName = "FillRow", DataAccess = DataAccessKind.Read,
             SystemDataAccess = SystemDataAccessKind.Read)]
         public static IEnumerable ParseAddress(string addr, bool? isHeavy = false)
         {
-            if (string.IsNullOrEmpty(addr))
-                return null;
-
-            return AddressParserInternal.ParseAddress(InitSearchQuery(addr), isHeavy == true);
+            var address = Parser.ParseAddress(addr, isHeavy);
+            return address == null ? null : new[] { address };
         }
 
 
         [SqlFunction(FillRowMethodName = "FillRow", DataAccess = DataAccessKind.Read)]
         public static IEnumerable GetAddressByOldId(Guid? addrOldId)
         {
-            if (!addrOldId.HasValue)
-                return new List<Address>();
-
-            return AddressParserInternal.GetAddressByOldId(addrOldId.Value);
+            var address = Parser.GetAddressByOldId(addrOldId);
+            return address == null ? null : new[] { address };
         }
 
 
         [SqlFunction(DataAccess = DataAccessKind.Read)]
         public static string GetAddressStringByOldId(Guid? oldId)
         {
-            if (!oldId.HasValue)
-                return null;
-
-            return AddressStringBuilder.GetAddressStringByOldId(oldId.Value);
+            return Parser.GetAddressStringByOldId(oldId);
         }
 
 
         [SqlFunction(DataAccess = DataAccessKind.Read)]
         public static string GetAddressStringByGuid(Guid? someId)
         {
-            if (!someId.HasValue)
-                return null;
-
-            return AddressStringBuilder.GetAddressStringByGuid(someId.Value);
+            return Parser.GetAddressStringByGuid(someId);
         }
 
 
         [SqlFunction(DataAccess = DataAccessKind.Read)]
         public static string GetAddressStringById(int? id)
         {
-            if (!id.HasValue)
-                return null;
-
-            return AddressStringBuilder.GetAddressStringById(id.Value);
+            return Parser.GetAddressStringById(id);
         }
 
 
         [SqlProcedure]
         public static void CreateAddonAddrHouse(Guid? parentId, string addr, out Guid? addonAddrHouseId)
         {
-            addonAddrHouseId = null;
-            if (!parentId.HasValue || string.IsNullOrEmpty(addr))
-                return;
-
-            addonAddrHouseId = AddressParserInternal.CreateAddonAddrHouse(parentId.Value, InitSearchQuery(addr));
+            addonAddrHouseId = Parser.CreateAddonAddrHouse(parentId, addr);
         }
 
 
@@ -91,22 +77,6 @@ namespace CE.Parsing
             addonHouseId = address.AddonHouseId;
             room = address.Room;
             isAllWordsFound = address.IsAllWordsFound;
-        }
-
-
-        static string InitSearchQuery(string query)
-        {
-            string addrStr = Regex.Replace(query, @"\s*\-\s*", "-").ToLower();
-            string postalCode = GetPostalCode(addrStr);
-            string result = string.IsNullOrEmpty(postalCode) ? addrStr : addrStr.Replace(postalCode, "");
-            return result;
-        }
-
-
-        static string GetPostalCode(string addr)
-        {
-            const string postalCodePattern = @"(?<pCode>[0-9]{5,6})";
-            return Regex.Match(addr, postalCodePattern).Groups["pCode"].Value;
         }
     }
 }

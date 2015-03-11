@@ -8,7 +8,7 @@ using System.Data.SqlClient;
 
 namespace CE.Parsing.Core.Models
 {
-    internal class Address
+    public class Address : IEquatable<Address>
     {
         int? _addressId;
 
@@ -42,6 +42,17 @@ namespace CE.Parsing.Core.Models
         public AddrObject AddrObject { get; private set; }
         public AddrHouse AddrHouse { get; private set; }
 
+        // For test only
+        public Address(AddrHouse ah)
+        {
+            SetHouse(ah);
+        }
+
+
+        public Address(int id)
+        {
+            AddressId = id;
+        }
 
         public Address(AddrObject ao)
         {
@@ -101,10 +112,38 @@ namespace CE.Parsing.Core.Models
         }
 
 
+        public bool Equals(Address other)
+        {
+            return other != null && AddressId == other.AddressId && AoId == other.AoId && HouseId == other.HouseId &&
+                   AddonAoId == other.AddonAoId &&
+                   AddonHouseId == other.AddonHouseId && LandMarkId == other.LandMarkId && Room == other.Room;
+        }
+
+        public override bool Equals(object obj)
+        {
+            return Equals(obj as Address);
+        }
+
+
+        public override int GetHashCode()
+        {
+            return (AddressId ?? 0).GetHashCode() ^ 
+                (AoId ?? Guid.Empty).GetHashCode() ^
+                (HouseId ?? Guid.Empty).GetHashCode() ^
+                (AddonAoId ?? Guid.Empty).GetHashCode() ^
+                (AddonHouseId ?? Guid.Empty).GetHashCode() ^
+                (LandMarkId ?? Guid.Empty).GetHashCode() ^ 
+                (Room ?? string.Empty).GetHashCode();
+        }
+
+
         public override string ToString()
         {
-            return string.Format("AddressId: {0}, AoId: {1}, LandMarkId: {2}, HouseId: {3}, AddonAoId: {4}, AddonHouseId: {5}, HierarchyLevel: {6}, IsAllWordsFound: {7}", AddressId, AoId, LandMarkId, HouseId, AddonAoId,
-                AddonHouseId, HierarchyLevel, IsAllWordsFound);
+            return
+                string.Format(
+                    "AddressId: {0}, AoId: {1}, LandMarkId: {2}, HouseId: {3}, AddonAoId: {4}, AddonHouseId: {5}, HierarchyLevel: {6}, IsAllWordsFound: {7}",
+                    AddressId, AoId, LandMarkId, HouseId, AddonAoId,
+                    AddonHouseId, HierarchyLevel, IsAllWordsFound);
         }
     }
 }

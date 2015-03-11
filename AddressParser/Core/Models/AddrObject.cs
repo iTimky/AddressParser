@@ -9,7 +9,7 @@ using System.Data.SqlClient;
 
 namespace CE.Parsing.Core.Models
 {
-    internal class AddrObject : IEquatable<AddrObject>
+    public class AddrObject : IEquatable<AddrObject>
     {
         public readonly Guid Id;
         public readonly Guid? ParentId;
@@ -21,6 +21,12 @@ namespace CE.Parsing.Core.Models
         public int HierarchyLevel;
         public readonly AddrObjectKind Kind;
 
+
+        public AddrObject(Guid id, AddrObjectKind kind = AddrObjectKind.AddrObjectCurrent)
+        {
+            Id = id;
+            Kind = kind;
+        }
 
         public AddrObject(SqlDataReader reader, AddrObjectKind kind = AddrObjectKind.AddrObjectCurrent)
         {

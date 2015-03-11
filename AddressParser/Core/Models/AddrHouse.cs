@@ -2,14 +2,20 @@ using System;
 
 
 
-namespace CE.Parsing
+namespace CE.Parsing.Core.Models
 {
-    internal class AddrHouse : IEquatable<AddrHouse>
+    public class AddrHouse : IEquatable<AddrHouse>
     {
         public readonly Guid Id;
         public readonly Guid ParentId;
         public readonly bool IsAddon;
 
+        // For test only
+        public AddrHouse(Guid id, bool isAddon = false)
+        {
+            Id = id;
+            IsAddon = isAddon;
+        }
 
         public AddrHouse(Guid id, Guid parentId, bool isAddon = false)
         {
