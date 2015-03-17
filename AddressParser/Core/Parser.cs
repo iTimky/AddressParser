@@ -79,7 +79,8 @@ namespace CE.Parsing.Core
                 ? possibleAddresses.First()
                 : possibleAddresses.First(pa => pa.IsAllWordsFound == true);
 
-            mainAddress.Room = houseInfo.Room;
+            if (mainAddress.AddrHouse != null)
+                mainAddress.Room = houseInfo.Room;
             _dataContext.FindAddress(mainAddress);
 
             return mainAddress;
@@ -263,7 +264,7 @@ namespace CE.Parsing.Core
             const string housePattern =
                 @"(?<h>(^|(^|\s)(дом|д)?\.?)\s?(?<hNum>((([0-9]*[а-зА-З]?|[а-ге-зА-ГЕ-З]?[0-9]*)|([0-9]*[а-ге-зА-ГЕ-З]?|[а-ге-зА-ГЕ-З]?[0-9]*)[\/\-\s]([0-9]*[а-зА-З]?|[а-зА-З]?[0-9]*)?)))($|[\,\s]*)|^)(?<b>($|((корпус|корп|крп|к)\.?\s?[\«\""\']?(?<bNum>(([0-9]*[a-fA-Fа-рА-Р]?|[a-fA-Fа-зА-З]?[0-9]*)?[\/\-]?([0-9]*[a-fA-Fа-рА-Р]?|[a-fA-Fа-зА-З]?[0-9]*)?))[\»\""\']?($|[\,\s]*)|^|)))(?<s>($|(литера|литер|лит|строение|строен|стр|с)\.?\s?[\«\""\']?(?<sNum>(([0-9]*[a-fA-Fа-рА-Р]?|[a-fA-Fа-зА-З]?[0-9]*)?[\/\-]?([0-9]*[a-fA-Fа-рА-Р]?|[a-fA-Fа-зА-З]?[0-9]*)?))[\»\""\']?($|[\,\s]*$)))";
             const string roomPattern =
-                @".*(?<r>(?<rName>(помещение|помещ|пом|квартира|кв|офис|оф)\.?)(?<rNum>((\.|\,|\s)(\№|\#)?([\«\""\']?[0-9]*[a-fA-Fа-рА-Р]?|[a-fA-Fа-зА-З]?[0-9]*)?[\/\-]?([0-9]*[a-fA-Fа-рА-Р]?|[a-fA-Fа-зА-З]?[0-9]*)[\»\""\']?){1,}))(\s|$)";
+                @"(?<r>(?<rName>(помещение|помещ|пом|квартира|кв|офис|оф)\.?)(?<rNum>((\.|\,|\s)(\№|\#)?([\«\""\']?[0-9]*[a-fA-Fа-рА-Р]?|[a-fA-Fа-зА-З]?[0-9]*)?[\/\-]?([0-9]*[a-fA-Fа-рА-Р]?|[a-fA-Fа-зА-З]?[0-9]*)[\»\""\']?){1,}))(\s|$)";
 
             string room = null;
 
@@ -381,6 +382,9 @@ namespace CE.Parsing.Core
                 if (sameElement == null || sameElement.Type != nameAndType.Type)
                     nameAndTypes.Add(nameAndType);
             }
+
+            foreach (var nameAndType in nameAndTypes.Where(n => n.Type != null).ToList())
+                nameAndTypes.Add(new NameAndType(nameAndType.AddrName, nameAndType.OriginAddrName, null, nameAndType.AddressPart));
 
             return nameAndTypes.Where(n => !string.IsNullOrEmpty(n.AddrName)).Distinct();
         }
