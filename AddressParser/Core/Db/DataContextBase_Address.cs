@@ -127,9 +127,11 @@ namespace CE.Parsing.Core.Db
 
 
         #region GetAddressAddrHouses
-        internal List<AddrHouse> GetAddressAddrHouses(IEnumerable<Address> addresses, HouseInfo houseInfo)
+        internal List<AddrHouse> GetAddressAddrHouses(List<Address> addresses, HouseInfo houseInfo)
         {
             var addrHouses = new List<AddrHouse>();
+            if (!addresses.Any())
+                return addrHouses;
 
             string hNumPred = string.IsNullOrEmpty(houseInfo.HouseNum)
                 ? "ahc.HouseNum is null and ahc.NumberEffective is null"
@@ -235,9 +237,12 @@ namespace CE.Parsing.Core.Db
 
 
         #region GetAddressAddonAddrHouses
-        internal List<AddrHouse> GetAddressAddonAddrHouses(IEnumerable<Address> addresses, HouseInfo houseInfo)
+        internal List<AddrHouse> GetAddressAddonAddrHouses(List<Address> addresses, HouseInfo houseInfo)
         {
             var addrHouses = new List<AddrHouse>();
+
+            if (!addresses.Any())
+                return addrHouses;
 
             string hNumPred = string.IsNullOrEmpty(houseInfo.HouseNum)
                 ? "aah.Number is null"
@@ -252,7 +257,7 @@ namespace CE.Parsing.Core.Db
             string query = string.Format(@"select aah.Id, aah.ParentId
                                 from dbo.AddonAddrHouses aah                                     
                                 where aah.ParentId in ({0})
-                                and {1} and {2} and {3};", string.Join(", ", addresses.Where(a => a.AddrObject != null).Select(a => string.Format("'{0}'", a.AddrObject.Id))), hNumPred, bNumPred, sNumPred);
+                                and {1} and {2} and {3};", string.Join(", ", addresses.Select(a => string.Format("'{0}'", a.AddrObject.Id))), hNumPred, bNumPred, sNumPred);
 
             using (var connection = new SqlConnection(ConnectionString))
             {
