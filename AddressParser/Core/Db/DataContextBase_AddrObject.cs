@@ -4,11 +4,11 @@ using System.Data.SqlClient;
 using System.Linq;
 using System.Text;
 
-using CE.Parsing.Core.Models;
+using AddressParser.Core.Models;
 
 
 
-namespace CE.Parsing.Core.Db
+namespace AddressParser.Core.Db
 {
     public abstract partial class DataContextBase
     {
@@ -24,7 +24,7 @@ namespace CE.Parsing.Core.Db
                             lower(aot.EngName)
                             from dbo.AddrObjectTypes aot
                             join ({0}) t on t.String = aot.Name or t.String = aot.ShortName or t.String = EngName",
-                string.Join(" union ", words.Select(n => string.Format("select '{0}' String", n))));
+                string.Join(" union ", words.Distinct().Select(n => string.Format("select '{0}' String", n))));
             using (var connection = new SqlConnection(ConnectionString))
             using (var command = new SqlCommand(query, connection))
             {
@@ -57,25 +57,25 @@ namespace CE.Parsing.Core.Db
                 query = GetHeavyAddrObjectSearchQuery(nameAndTypes);
             else
                 query = string.Format(@"
-                        select t.Id, t.ParentId, t.Name, cast(t.TypeId as tinyint), al.EngName from
+                        select t.Id, t.ParentId, t.Name, cast(t.TypeId as tinyint), t.IsTypeExplicit, t.Level, t.RegionId, aoc.ParentId as ParentParentId from
                         (
-                            select  aoc.Id, aoc.ParentId, i.Name, null as TypeId, aoc.[Level]
+                            select  aoc.Id, aoc.ParentId, i.Name, aoc.TypeId, cast(0 as bit) as IsTypeExplicit, aoc.[Level], aoc.RegionId
                             from ({0}) i    
                             join dbo.AddrObjectsCurrent aoc on aoc.FormalName = i.Name and i.TypeId is null
                             union
-                            select  aoc.Id, aoc.ParentId, i.Name, null as TypeId, aoc.[Level]
+                            select  aoc.Id, aoc.ParentId, i.Name, aoc.TypeId, cast(0 as bit) as IsTypeExplicit, aoc.[Level], aoc.RegionId
                             from ({0}) i    
                             join dbo.AddrObjectsCurrent aoc on aoc.OfficialName = i.Name and i.TypeId is null
                             union
-                            select  aoc.Id, aoc.ParentId, i.Name, i.TypeId, aoc.[Level]
+                            select  aoc.Id, aoc.ParentId, i.Name, aoc.TypeId, cast(1 as bit) as IsTypeExplicit, aoc.[Level], aoc.RegionId
                             from ({0}) i    
                             join dbo.AddrObjectsCurrent aoc on aoc.FormalName = i.Name and i.TypeId = aoc.TypeId
                             union
-                            select  aoc.Id, aoc.ParentId, i.Name, i.TypeId, aoc.[Level]
+                            select  aoc.Id, aoc.ParentId, i.Name, aoc.TypeId, cast(1 as bit) as IsTypeExplicit, aoc.[Level], aoc.RegionId
                             from ({0}) i    
                             join dbo.AddrObjectsCurrent aoc on aoc.OfficialName = i.Name and i.TypeId = aoc.TypeId
                         ) t
-                        join dbo.AddrLevels al on al.Id = t.Level;",
+                        left join dbo.AddrObjectsCurrent aoc on aoc.Id = t.ParentId;",
                     GetNameAndTypeSelect(nameAndTypes)
                     );
 
@@ -85,8 +85,8 @@ namespace CE.Parsing.Core.Db
 
         string GetNameAndTypeSelect(List<NameAndType> nameAndTypes)
         {
-            var nameTypes = nameAndTypes.Select(n => new { Id = n.Type == null ? (byte?)null : n.Type.Id, Name = n.AddrName })
-                .Union(nameAndTypes.Select(n => new { Id = (byte?)null, Name = n.OriginAddrName })).Where(
+            var nameTypes = nameAndTypes.Select(n => new { Id = n.Type == null ? (byte?)null : n.Type.Id, Name = n.AddrObjectName.Name })
+                .Union(nameAndTypes.Select(n => new { Id = (byte?)null, Name = n.AddrObjectName.OriginalName })).Where(
                     n => !string.IsNullOrEmpty(n.Name));
 
             return string.Join(" union ",
@@ -115,25 +115,25 @@ namespace CE.Parsing.Core.Db
         string GetHeavyAddrObjectSearchQuery(List<NameAndType> nameAndTypes)
         {
             var stringBuilder =
-                new StringBuilder("select t.Id, t.ParentId, t.Name, cast(t.TypeId as tinyint), al.EngName from(" +
+                new StringBuilder("select t.Id, t.ParentId, t.Name, cast(t.TypeId as tinyint), t.IsTypeExplicit, t.Level from(" +
                                   Environment.NewLine);
-            var nameTypes = nameAndTypes.Select(n => new { Id = n.Type == null ? 0 : n.Type.Id, Name = n.AddrName })
-                .Union(nameAndTypes.Select(n => new { Id = 0, Name = n.OriginAddrName })).Where(n => !string.IsNullOrEmpty(n.Name));
+            var nameTypes = nameAndTypes.Select(n => new { Id = n.Type == null ? 0 : n.Type.Id, Name = n.AddrObjectName.Name })
+                .Union(nameAndTypes.Select(n => new { Id = 0, Name = n.AddrObjectName.OriginalName })).Where(n => !string.IsNullOrEmpty(n.Name));
 
             foreach (var nameType in nameTypes)
             {
-                string subQuery = string.Format(@" select aoc.Id, aoc.ParentId, '{0}' as Name, {3} as TypeId, aoc.[Level]
+                string subQuery = string.Format(@" select aoc.Id, aoc.ParentId, '{0}' as Name, aoc.TypeId, {3} as IsTypeExplicit, aoc.[Level]
     from dbo.AddrObjectsCurrent aoc
     where contains ((FormalName, OfficialName), '""{1}""') and (FormalName like '%{0}%' or OfficialName like '%{0}%'){2} union",
                     nameType.Name.Trim(),
                     nameType.Name.Trim(),
                     nameType.Id == 0 ? "" : string.Format(" and aoc.TypeId = {0}", nameType.Id),
-                    nameType.Id == 0 ? "null" : nameType.Id.ToString());
+                    nameType.Id == 0 ? "cast(0 as bit)" : "cast(1 as bit)");
                 stringBuilder.Append(subQuery);
             }
 
             stringBuilder.Remove(stringBuilder.Length - "union".Length, "union".Length);
-            stringBuilder.Append(@") t join dbo.AddrLevels al on al.Id = t.Level");
+            stringBuilder.Append(@") t");
 
             string query = stringBuilder.ToString();
 
@@ -146,10 +146,14 @@ namespace CE.Parsing.Core.Db
         internal List<AddrObject> GetAddonAddrObjects(List<NameAndType> nameAndTypes, bool isHeavy)
         {
             string query = string.Format(@"
-                        select aao.Id, aao.ParentId, i.Name, cast(i.TypeId as tinyint)
+                        select aao.Id,
+                                aao.ParentId,
+                                i.Name,
+                                aao.TypeId,
+                                cast ((case when i.TypeId is null then 0 else 1 end) as bit) as IsTypeExplicit,
+                                aao.Level
                         from ({1}) i 
-                        join dbo.AddonAddrObjects aao on (aao.Name {0} or aao.EnglishName {0}) and (i.TypeId is null or aao.TypeId = i.TypeId)
-                        join dbo.AddrLevels al on al.Id = aao.Level;", isHeavy ? "like '%' + i.Name + '%'" : "= i.Name", GetNameAndTypeSelect(nameAndTypes));
+                        join dbo.AddonAddrObjects aao on (aao.Name {0} or aao.EnglishName {0}) and (i.TypeId is null or aao.TypeId = i.TypeId);", isHeavy ? "like '%' + i.Name + '%'" : "= i.Name", GetNameAndTypeSelect(nameAndTypes));
 
             return SelectAddrObjects(query, AddrObjectKind.AddonAddrObject);
         }
@@ -174,7 +178,10 @@ namespace CE.Parsing.Core.Db
                 return geographicalObjects;
 
             string geogrObjQuery = string.Format(
-                @"select GeographicalObjectsID, Name from SQL02.CityExpressDB_Online_ceapp.dbo.T_GEOGRAPHICAL_OBJECTS with (nolock) where GeographicalObjectsID in ({0})",
+                @"select o.GeographicalObjectsID, o.Name, tgot.Abbreviation
+from SQL02.CityExpressDB_Online_ceapp.dbo.T_GEOGRAPHICAL_OBJECTS o with (nolock) 
+    left join SQL02.CityExpressDB_Online_ceapp.dbo.T_GEOGRAPHICAL_OBJECTS_TYPE tgot (nolock) on o.GeographicalObjectsType = tgot.GeographicalObjectsTypeID
+where GeographicalObjectsID in ({0})",
                 string.Join(", ", geographicalObjectIds.Select(g => string.Format("'{0}'", g))));
 
             using (var connection = new SqlConnection(ConnectionString))
@@ -184,28 +191,20 @@ namespace CE.Parsing.Core.Db
                 {
                     using (SqlDataReader reader = command.ExecuteReader())
                         while (reader.Read())
-                            geographicalObjects.Add(new GeographicalObject
+                        {
+                            GeographicalObject o = new GeographicalObject
                             {
                                 Id = reader.GetGuid(0),
-                                Name = reader.IsDBNull(1) ? null : reader.GetString(1)
-                            });
+                                Name = reader.IsDBNull(1) ? null : reader.GetString(1).Trim(),
+                                TypeName = reader.IsDBNull(2) ? null : reader.GetString(2).Trim(),
+                            };
 
-                    if (oldAddress.MetroStation.HasValue)
-                    {
-                        string metroQuery =
-                            string.Format(
-                                @"select MetroStationID, Name from SQL02.CityExpressDB_Online_ceapp.dbo.T_METRO_STATIONS with (nolock) where MetroStationID = '{0}'",
-                                oldAddress.MetroStation);
-                        command.CommandText = metroQuery;
-                        //using (var command = new SqlCommand(metroQuery, connection))
-                        using (SqlDataReader reader = command.ExecuteReader())
-                            while (reader.Read())
-                                geographicalObjects.Add(new GeographicalObject
-                                {
-                                    Id = reader.GetGuid(0),
-                                    Name = reader.IsDBNull(1) ? null : reader.GetString(1)
-                                });
-                    }
+                            if (o.Name != "." && o.Name != "" && o.Name != "-" && o.Name != "*" && o.Name != "," && o.Name != "др" &&
+                                o.Name != "111" && o.Name != "000" && o.Name != "***" && o.Name != "др." &&
+                            !(o.Id == oldAddress.City && (o.Name.Contains("др.") || o.Name.Contains("другие")) ||
+                              o.Id == oldAddress.Street && (o.Name.Contains("улицы") || o.Name.Contains("др. ул."))))
+                            geographicalObjects.Add(o);
+                        }
                 }
             }
 

@@ -2,25 +2,30 @@
 using System;
 using System.Collections.Generic;
 using System.Data.SqlClient;
+using System.Linq;
 
 #endregion
 
 
 
-namespace CE.Parsing.Core.Models
+namespace AddressParser.Core.Models
 {
     public class AddrObject : IEquatable<AddrObject>
     {
         public readonly Guid Id;
         public readonly Guid? ParentId;
+        public readonly Guid? ParentParentId;
         public readonly List<AddrObject> Childs = new List<AddrObject>();
-        public AddrObject Parent;
         public readonly string Name;
         public readonly byte? TypeId;
-        public readonly string Level;
-        public int HierarchyLevel;
+        public readonly AddrObjectType Type;
+        public readonly AddrLevel Level;
+        public readonly byte? RegionId;
+        public readonly bool IsTypeExplicit;
         public readonly AddrObjectKind Kind;
 
+        public AddrObject Parent;
+        public int HierarchyLevel;
 
         public AddrObject(Guid id, AddrObjectKind kind = AddrObjectKind.AddrObjectCurrent)
         {
@@ -34,8 +39,16 @@ namespace CE.Parsing.Core.Models
             Id = reader.GetGuid(0);
             ParentId = colCount > 1 && !reader.IsDBNull(1) ? reader.GetGuid(1) : (Guid?) null;
             Name = colCount > 2 && !reader.IsDBNull(2) ? reader.GetString(2) : null;
+            if (colCount > 3 && !reader.IsDBNull(3))
+            {
+                TypeId = reader.GetByte(3);
+                Type = AddrObjectType.Get(TypeId.Value);
+            }
             TypeId = colCount > 3 && !reader.IsDBNull(3) ? reader.GetByte(3) : (byte?) null;
-            Level = colCount > 4 && !reader.IsDBNull(4) ? reader.GetString(4) : null;
+            IsTypeExplicit = colCount > 4 && reader.GetBoolean(4);
+            Level = colCount > 5 && !reader.IsDBNull(5) ? (AddrLevel)reader.GetByte(5) : null;
+            RegionId = colCount > 6 ? reader.GetByte(6) : (byte?)null;
+            ParentParentId = colCount > 7 && !reader.IsDBNull(7) ? reader.GetGuid(7) : (Guid?)null;
             Kind = kind;
         }
 

@@ -1,4 +1,4 @@
-namespace CE.Parsing.Core.Models
+namespace AddressParser.Core.Models
 {
     public enum AddrObjectKind
     {

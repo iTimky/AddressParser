@@ -5,7 +5,7 @@ using System.Text.RegularExpressions;
 
 
 
-namespace CE.Parsing.Core.Models
+namespace AddressParser.Core.Models
 {
     internal class AddressPart : IEquatable<AddressPart>
     {
@@ -13,6 +13,7 @@ namespace CE.Parsing.Core.Models
         public readonly List<NameAndType> Childs = new List<NameAndType>();
 
         public IEnumerable<string> Variations { get { return _variations; } }
+        public int Count { get { return _variations.Count; } }
 
 
         public AddressPart(IEnumerable<string> addrs)
@@ -26,7 +27,7 @@ namespace CE.Parsing.Core.Models
             foreach (NameAndType nameAndType in Childs.Where(c => c.Type != null))
             {
                 var toAdd = new List<string>();
-                List<string> sameNames = _variations.Where(v => v == nameAndType.OriginAddrName).ToList();
+                List<string> sameNames = _variations.Where(v => v == nameAndType.AddrObjectName.OriginalName).ToList();
                 AddrObjectType type = nameAndType.Type;
                 var trimChars = new[] { ' ', '.' };
                 var spaceChars = new[] { ' ' };
@@ -45,7 +46,7 @@ namespace CE.Parsing.Core.Models
                             Regex.Replace(v, string.Format(@"(^|\s){0}(\.|\s|$)", type.EngName), " ").Trim(trimChars)));
 
                 List<string> distinctVariations =
-                    _variations.Union(toAdd).Union(Childs.Select(c => c.AddrName))
+                    _variations.Union(toAdd).Union(Childs.Select(c => c.AddrObjectName.Name))
                         .Select(s => Regex.Replace(s, @"\s+", " "))
                         .Select(s => s.Trim(trimChars))
                         .Where(s => !string.IsNullOrEmpty(s) && !string.IsNullOrWhiteSpace(s))
@@ -99,7 +100,9 @@ namespace CE.Parsing.Core.Models
             if (ReferenceEquals(part, null) || ReferenceEquals(addr, null))
                 return false;
 
-            return part._variations.Any(v => string.Compare(v, addr, StringComparison.OrdinalIgnoreCase) == 0);
+            return part._variations.Any(v => string.Compare(v, addr, StringComparison.OrdinalIgnoreCase) == 0) ||
+                part.Childs.Any(ch => string.Compare(ch.AddrObjectName.Name, addr, StringComparison.OrdinalIgnoreCase) == 0 ||
+                string.Compare(ch.AddrObjectName.OriginalName, addr, StringComparison.OrdinalIgnoreCase) == 0);
         }
 
 

@@ -1,18 +1,79 @@
-﻿using System;
+﻿#region usings
+using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Data.SqlClient;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
-using CE.Parsing.Core.Models;
+using AddressParser.Core.Models;
+
+#endregion
 
 
 
-namespace CE.Parsing.Core.Db
+namespace AddressParser.Core.Db
 {
     public abstract partial class DataContextBase
     {
+        public TupleOld GetTupleOld(int id)
+        {
+            using (var con = new SqlConnection(ConnectionString))
+            using (SqlCommand com = con.CreateCommand())
+            {
+                com.CommandType = CommandType.Text;
+                com.CommandText = @"select * from addresses_matching t where id=@id";
+                com.Parameters.AddWithValue("id", id);
+
+                con.Open();
+
+                TupleOld t = null;
+                using (SqlDataReader r = com.ExecuteReader())
+                    if (r.Read())
+                    {
+                        t = new TupleOld();
+
+                        t.old_Country = GetNullableVal<Guid>(r["old_Country"]);
+                        t.old_Country_name = GetNullableString(r["old_Country_name"]);
+                        t.old_CountryRegion = GetNullableVal<Guid>(r["old_CountryRegion"]);
+                        t.old_CountryRegion_name = GetNullableString(r["old_CountryRegion_name"]);
+                        t.old_City = GetNullableVal<Guid>(r["old_City"]);
+                        t.old_City_name = GetNullableString(r["old_City_name"]);
+                        t.old_City_type = GetNullableString(r["old_City_type"]);
+                        t.old_Street = GetNullableVal<Guid>(r["old_Street"]);
+                        t.old_Street_name = GetNullableString(r["old_Street_name"]);
+                        t.old_Street_type = GetNullableString(r["old_Street_type"]);
+
+                        t.old_BuildingNumber = GetNullableString(r["old_BuildingNumber"]);
+                        t.old_AppartmentNumber = GetNullableString(r["old_AppartmentNumber"]);
+
+                        t.Id = id;
+                    }
+                return t;
+            }
+        }
+
+
+        protected static T? GetNullableVal<T>(object o, T? def = default(T?)) where T : struct
+        {
+            return o == null || o == DBNull.Value ? def : (T) o;
+        }
+
+
+        protected static string GetNullableString(object o, string def = null)
+        {
+            return GetNullableRef<string>(o, def);
+        }
+
+
+        protected static T GetNullableRef<T>(object o, T def = default(T)) where T : class
+        {
+            return o == null || o is DBNull ? def : (T) o;
+        }
+
+
         #region GetOldAddress
         internal OldAddress GetOldAddress(Guid id)
         {
@@ -33,59 +94,78 @@ namespace CE.Parsing.Core.Db
                     if (reader.Read())
                     {
                         oldAddress = new OldAddress();
-                        oldAddress.Country = reader.IsDBNull(0) ? (Guid?)null : reader.GetGuid(0);
-                        oldAddress.City = reader.IsDBNull(1) ? (Guid?)null : reader.GetGuid(1);
-                        oldAddress.Street = reader.IsDBNull(2) ? (Guid?)null : reader.GetGuid(2);
-                        oldAddress.CountryRegion = reader.IsDBNull(3) ? (Guid?)null : reader.GetGuid(3);
+                        oldAddress.Country = reader.IsDBNull(0) ? (Guid?) null : reader.GetGuid(0);
+                        oldAddress.CountryRegion = reader.IsDBNull(3) ? (Guid?) null : reader.GetGuid(3);
+                        oldAddress.City = reader.IsDBNull(1) ? (Guid?) null : reader.GetGuid(1);
+                        oldAddress.Street = reader.IsDBNull(2) ? (Guid?) null : reader.GetGuid(2);
                         oldAddress.BuildingNumber = reader.IsDBNull(4) ? null : reader.GetString(4);
                         oldAddress.AppartmentNumber = reader.IsDBNull(5) ? null : reader.GetString(5);
                     }
             }
 
+            if (oldAddress != null)
+            {
+                if (oldAddress.City.HasValue && oldAddress.City.Value == Guid.Parse("8A8B35FD-F4DF-4003-88CF-BCFE08BE4D5D"))
+                    // Moscow
+                    oldAddress.CountryRegion = null;
+
+                if (oldAddress.BuildingNumber != null)
+                {
+                    oldAddress.BuildingNumber = oldAddress.BuildingNumber.Trim();
+                    if (!Regex.IsMatch(oldAddress.BuildingNumber, @"[\da-zA-Zа-яА-Я]"))
+                        oldAddress.BuildingNumber = null;
+                }
+                if (oldAddress.AppartmentNumber != null)
+                {
+                    oldAddress.AppartmentNumber = oldAddress.AppartmentNumber.Trim();
+                    if (!Regex.IsMatch(oldAddress.AppartmentNumber, @"[\da-zA-Zа-яА-Я]"))
+                        oldAddress.AppartmentNumber = null;
+                }
+            }
             return oldAddress;
         }
         #endregion
 
 
         #region GetAddressByOldAddress
-        internal Address GetAddressByOldAddress(OldAddress oldAddress)
+        /// <summary>
+        /// Does not recognizing! Returns object only if old_id exists in AddrObjectsOldIds or AddonAddrObjects.old_id
+        /// </summary>
+        /// <param name="majorness">4 means street, 3 city, 2 region, 1 country</param>
+        internal Address GetAddressByMajorOldGeoId(OldAddress oldAddress, int majorness = 4)
         {
             Address address = null;
-            Guid? searchingObject = oldAddress.Street ?? oldAddress.City ?? oldAddress.CountryRegion ?? oldAddress.Country;
+            Guid? searchingObject = (majorness >= 4 ? oldAddress.Street : null) ??
+                                    (majorness >= 3 ? oldAddress.City : null) ??
+                                    (majorness >= 2 ? oldAddress.CountryRegion : null) ??
+                                    oldAddress.Country;
             if (searchingObject == null)
                 return null;
 
             using (var connection = new SqlConnection(ConnectionString))
             {
                 connection.Open();
-                string addrObjQuery = string.Format(@"select  aoc.Id, aoc.ParentId, aoc.OfficialName, aoc.TypeId
+                string addrObjQuery = string.Format(@"select  aoc.Id, aoc.ParentId, aoc.OfficialName, aoc.TypeId, cast(1 as bit) as IsTypeExplicit
                                         from dbo.AddrObjectsCurrent aoc
-                                        join dbo.AddrObjectsOldIds aooi on aooi.Id = aoc.Id
+                                            join dbo.AddrObjectsOldIds aooi on aooi.Id = aoc.Id
                                         where aooi.old_id = '{0}';", searchingObject);
                 using (var command = new SqlCommand(addrObjQuery, connection))
                 {
                     using (SqlDataReader reader = command.ExecuteReader())
                         if (reader.Read())
-                        {
-                            var addrObject = new AddrObject(reader);
-                            address = new Address(addrObject);
-                        }
+                            address = new Address(new AddrObject(reader, AddrObjectKind.AddrObjectCurrent));
 
                     if (address != null)
                         return address;
 
-                    string addonObjQuery = string.Format(@"select  aao.Id, aao.ParentId, aao.Name, aao.TypeId
+                    string addonObjQuery = string.Format(@"select  aao.Id, aao.ParentId, aao.Name, aao.TypeId, cast(1 as bit) as IsTypeExplicit
                                         from dbo.AddonAddrObjects aao
                                         where aao.old_id = '{0}';", searchingObject);
 
                     command.CommandText = addonObjQuery;
-                    //using (var command = new SqlCommand(addonObjQuery, connection))
                     using (SqlDataReader reader = command.ExecuteReader())
                         if (reader.Read())
-                        {
-                            var addrObject = new AddrObject(reader, AddrObjectKind.AddonAddrObject);
-                            address = new Address(addrObject);
-                        }
+                            address = new Address(new AddrObject(reader, AddrObjectKind.AddonAddrObject));
                 }
             }
 
@@ -106,7 +186,7 @@ namespace CE.Parsing.Core.Db
                                      join ({1}) i on almc.Location = i.String or almc.Location like '% ' + i.String + ' %' 
                                      where almc.ParentAoId in ({0})",
                 string.Join(",", addresses.Select(ad => string.Format("'{0}'", ad.AoId))),
-                string.Join(" union ", names.Select(n => string.Format("select '{0}' String", n.AddrName))));
+                string.Join(" union ", names.Select(n => string.Format("select '{0}' String", n.AddrObjectName))));
 
             using (var connection = new SqlConnection(ConnectionString))
             {
@@ -182,7 +262,6 @@ namespace CE.Parsing.Core.Db
 
             AddrHouse addrHouse = null;
 
-
             string bNumPred = string.IsNullOrEmpty(houseInfo.BuildNum)
                 ? "house.BuildNum is null"
                 : string.Format("replace(house.BuildNum, ' ', '') = '{0}'", houseInfo.BuildNum);
@@ -257,7 +336,8 @@ namespace CE.Parsing.Core.Db
             string query = string.Format(@"select aah.Id, aah.ParentId
                                 from dbo.AddonAddrHouses aah                                     
                                 where aah.ParentId in ({0})
-                                and {1} and {2} and {3};", string.Join(", ", addresses.Select(a => string.Format("'{0}'", a.AddrObject.Id))), hNumPred, bNumPred, sNumPred);
+                                and {1} and {2} and {3};",
+                string.Join(", ", addresses.Select(a => string.Format("'{0}'", a.AddrObject.Id))), hNumPred, bNumPred, sNumPred);
 
             using (var connection = new SqlConnection(ConnectionString))
             {
@@ -276,9 +356,11 @@ namespace CE.Parsing.Core.Db
         #endregion
 
 
-        #region FindAddress
-        internal void FindAddress(Address address)
+        internal void SetAddressId(Address address)
         {
+            if (address.AddressId.HasValue)
+                return;
+
             string aoIdPred = address.AoId.HasValue ? string.Format("a.AoId = '{0}'", address.AoId) : "a.AoId is null";
             string landMarkPred = address.LandMarkId.HasValue
                 ? string.Format("a.LandMarkId = '{0}'", address.LandMarkId)
@@ -292,7 +374,8 @@ namespace CE.Parsing.Core.Db
             string addonHouseIdPred = address.AddonHouseId.HasValue
                 ? string.Format("a.AddonHouseId = '{0}'", address.AddonHouseId)
                 : "a.AddonHouseId is null";
-            string roomPred = address.Room != null ? string.Format("a.Room like '%{0}%'", address.Room) : "a.Room is null";
+            //string roomPred = address.Room != null ? string.Format("a.Room like '%{0}%'", address.Room) : "a.Room is null";
+            string roomPred = address.Room != null ? string.Format("a.Room = '{0}'", address.Room) : "a.Room is null";
             string wheres = string.Format("{0} and {1} and {2} and {3} and {4} and {5}", aoIdPred, landMarkPred, houseIdPred,
                 addonAoIdPred, addonHouseIdPred, roomPred);
             string fullQuery = string.Format("select a.Id from dbo.Addresses a where {0}", wheres);
@@ -305,6 +388,54 @@ namespace CE.Parsing.Core.Db
                 using (SqlDataReader reader = command.ExecuteReader())
                     if (reader.Read())
                         address.AddressId = reader.GetInt32(0);
+            }
+        }
+
+
+        #region MergeAddress
+        internal int MergeAddress(Address a)
+        {
+            string aoIdPred = a.AoId.HasValue ? "a.AoId = s.AoId" : "a.AoId is null";
+            string landMarkPred = a.LandMarkId.HasValue ? "a.LandMarkId = s.LandMarkId" : "a.LandMarkId is null";
+            string houseIdPred = a.HouseId.HasValue ? "a.HouseId = s.HouseId" : "a.HouseId is null";
+            string addonAoIdPred = a.AddonAoId.HasValue ? "a.AddonAoId = s.AddonAoId" : "a.AddonAoId is null";
+            string addonHouseIdPred = a.AddonHouseId.HasValue ? "a.AddonHouseId = s.AddonHouseId" : "a.AddonHouseId is null";
+            string roomPred = a.Room != null ? "a.Room = s.Room" : "a.Room is null";
+
+            string fullQuery = @"
+declare @t table(id int);
+;
+merge into dbo.Addresses a
+using (select @AoId AoId, @LandMarkId LandMarkId, @HouseId HouseId, @AddonAoId AddonAoId, @AddonHouseId AddonHouseId, @Room Room) s
+on 
+	" + string.Format("{0} and {1} and {2} and {3} and {4} and {5}",
+                aoIdPred, landMarkPred, houseIdPred, addonAoIdPred, addonHouseIdPred, roomPred) +
+                               @"
+when not matched then insert
+	(AoId, LandMarkId, HouseId, AddonAoId, AddonHouseId, Room)
+	values
+	(s.AoId, s.LandMarkId, s.HouseId, s.AddonAoId, s.AddonHouseId, s.Room)
+when matched then update set
+	AoId=s.AoId -- fake update
+output Inserted.Id into @t
+;
+select id from @t;
+";
+
+            using (var connection = new SqlConnection(ConnectionString))
+            using (var command = new SqlCommand(fullQuery, connection))
+            {
+                command.CommandTimeout = 600;
+                connection.Open();
+
+                command.Parameters.AddWithValue("AoId", a.AoId ?? (object) DBNull.Value);
+                command.Parameters.AddWithValue("LandMarkId", a.LandMarkId ?? (object) DBNull.Value);
+                command.Parameters.AddWithValue("HouseId", a.HouseId ?? (object) DBNull.Value);
+                command.Parameters.AddWithValue("AddonAoId", a.AddonAoId ?? (object) DBNull.Value);
+                command.Parameters.AddWithValue("AddonHouseId", a.AddonHouseId ?? (object) DBNull.Value);
+                command.Parameters.AddWithValue("Room", a.Room ?? (object) DBNull.Value);
+
+                return (int) command.ExecuteScalar();
             }
         }
         #endregion

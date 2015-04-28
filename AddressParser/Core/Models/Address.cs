@@ -1,12 +1,13 @@
 #region usings
 using System;
+using System.Collections.Generic;
 using System.Data.SqlClient;
 
 #endregion
 
 
 
-namespace CE.Parsing.Core.Models
+namespace AddressParser.Core.Models
 {
     public class Address : IEquatable<Address>
     {
@@ -18,8 +19,10 @@ namespace CE.Parsing.Core.Models
             get { return _addressId; }
             set
             {
-                ClearIds();
-                Room = null;
+                //ClearIds();
+                // Если решили оставлять все Id, то и Room необходимо оставить.
+                // Вот откуда IS-121 баг распознавания адресов по OldId - room
+                //Room = null;
                 _addressId = value;
                 HierarchyLevel++;
             }
@@ -41,6 +44,7 @@ namespace CE.Parsing.Core.Models
 
         public AddrObject AddrObject { get; private set; }
         public AddrHouse AddrHouse { get; private set; }
+        internal HouseInfo HouseInfo { get; set; }
 
         // For test only
         public Address(AddrHouse ah)
@@ -108,7 +112,70 @@ namespace CE.Parsing.Core.Models
             else
                 HouseId = ah.Id;
 
-            HierarchyLevel++;
+            //HierarchyLevel++;
+        }
+
+
+        public List<string> GetAllNames()
+        {
+            var names = new List<string>();
+
+            var addrObject = AddrObject;
+
+            while (addrObject != null)
+            {
+                names.Add(addrObject.Name);
+                addrObject = addrObject.Parent;
+            }
+
+            return names;
+        }
+
+
+        public AddrLevel GetMinLevel()
+        {
+            if (AddrObject == null)
+                return null;
+
+            var addrObject = AddrObject;
+            while (true)
+            {
+                if (addrObject.Parent == null)
+                    return addrObject.Level;
+
+                addrObject = addrObject.Parent;
+            }
+        }
+
+
+        public AddrObject GetMinAddrObject()
+        {
+            if (AddrObject == null)
+                return null;
+
+            var addrObject = AddrObject;
+            while (true)
+            {
+                if (addrObject.Parent == null)
+                    return addrObject;
+
+                addrObject = addrObject.Parent;
+            }
+        }
+
+
+        public bool HasSkippedParent()
+        {
+            var addrObject = AddrObject;
+            while (addrObject != null)
+            {
+                if (addrObject.Parent != null && addrObject.ParentId != addrObject.Parent.Id)
+                    return true;
+
+                addrObject = addrObject.Parent;
+            }
+
+            return false;
         }
 
 

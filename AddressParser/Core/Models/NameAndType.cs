@@ -2,22 +2,23 @@ using System;
 
 
 
-namespace CE.Parsing.Core.Models
+namespace AddressParser.Core.Models
 {
     internal class NameAndType : IEquatable<NameAndType>
     {
         public readonly AddressPart AddressPart;
         public readonly AddrObjectType Type;
-        public readonly string AddrName;
-        public readonly string OriginAddrName;
+        public readonly AddrObjectName AddrObjectName;
+        //public readonly string AddrName;
+        //public readonly string OriginAddrName;
 
 
         public NameAndType(string addrName, string originAddrName, AddressPart addressPart)
         {
-            AddrName = addrName;
-            OriginAddrName = originAddrName;
+            AddrObjectName = new AddrObjectName(addrName, originAddrName);
             AddressPart = addressPart;
-            addressPart.Childs.Add(this);
+            if (addressPart != null)
+                addressPart.Childs.Add(this);
         }
 
 
@@ -30,19 +31,19 @@ namespace CE.Parsing.Core.Models
 
         public override int GetHashCode()
         {
-            return AddrName.GetHashCode() ^ OriginAddrName.GetHashCode() ^ (Type != null ? Type.GetHashCode() : 0);
+            return AddrObjectName.GetHashCode() ^ (Type != null ? Type.GetHashCode() : 0);
         }
 
 
         public bool Equals(NameAndType other)
         {
-            return AddrName == other.AddrName && OriginAddrName == other.OriginAddrName && Type == other.Type;
+            return AddrObjectName == other.AddrObjectName && Type == other.Type;
         }
 
 
         public override string ToString()
         {
-            return string.Format("AddrName: {0}, Origin: {1}, Type: {2}, AddressPart: {3}", AddrName, OriginAddrName,
+            return string.Format("AddrName: {0}, Type: {1}, AddressPart: {2}", AddrObjectName,
                 Type == null ? "null" : Type.ToString(), AddressPart == null ? "null" : AddressPart.ToString());
         }
     }

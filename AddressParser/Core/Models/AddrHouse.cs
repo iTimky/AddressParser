@@ -2,7 +2,7 @@ using System;
 
 
 
-namespace CE.Parsing.Core.Models
+namespace AddressParser.Core.Models
 {
     public class AddrHouse : IEquatable<AddrHouse>
     {

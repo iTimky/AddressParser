@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace CE.Parsing.Core.Models
+namespace AddressParser.Core.Models
 {
     public class AddressHierarchyObject
     {

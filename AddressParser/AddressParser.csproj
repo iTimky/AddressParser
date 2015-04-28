@@ -7,8 +7,8 @@
     <ProjectGuid>{D29FC4DA-2A03-483C-8DAE-8273CDC22CBD}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>CE.Parsing</RootNamespace>
-    <AssemblyName>CE.Parsing</AssemblyName>
+    <RootNamespace>AddressParser</RootNamespace>
+    <AssemblyName>AddressParser</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
   </PropertyGroup>
@@ -39,11 +39,15 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Core\AddressChooser.cs" />
+    <Compile Include="Core\AddressComparer.cs" />
     <Compile Include="Core\AddressStringBuilder.cs" />
     <Compile Include="Core\Db\DataContextBase_Address.cs" />
     <Compile Include="Core\Db\DataContextBase_Common.cs" />
     <Compile Include="Core\Db\DataContextBase_AddrObject.cs" />
     <Compile Include="Core\Models\Address.cs" />
+    <Compile Include="Core\Models\AddrLevel.cs" />
+    <Compile Include="Core\Models\AddrObjectName.cs" />
     <Compile Include="Core\Parser.cs" />
     <Compile Include="AddressParser.cs" />
     <Compile Include="Core\Models\AddressHierarchyObject.cs" />
@@ -57,6 +61,8 @@
     <Compile Include="Core\Models\HouseInfo.cs" />
     <Compile Include="Core\Models\NameAndType.cs" />
     <Compile Include="Core\Models\OldAddress.cs" />
+    <Compile Include="Core\RegexPatterns.cs" />
+    <Compile Include="Core\Sugar.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
